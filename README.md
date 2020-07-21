@@ -11,13 +11,13 @@ Installation
 ------------
 
 ```sh
-go get -u github.com/pilagod/gorm-cursor-paginator
+go get -u github.com/mchaisse/gorm-cursor-paginator
 ```
 
 Usage by Example
 ----------------
 
-> For more comprehensive examples, you can check [example/main.go](https://github.com/pilagod/gorm-cursor-paginator/blob/master/example/main.go) and [paginator_test.go](https://github.com/pilagod/gorm-cursor-paginator/blob/master/paginator_test.go)
+> For more comprehensive examples, you can check [example/main.go](https://github.com/mchaisse/gorm-cursor-paginator/blob/master/example/main.go) and [paginator_test.go](https://github.com/mchaisse/gorm-cursor-paginator/blob/master/paginator_test.go)
 
 Assume there is an query struct for paging:
 
@@ -43,7 +43,7 @@ You can simply build up a new cursor paginator from the PagingQuery like:
 
 ```go
 import (
-    paginator "github.com/pilagod/gorm-cursor-paginator"
+    paginator "github.com/mchaisse/gorm-cursor-paginator"
 )
 
 func GetModelPaginator(q PagingQuery) *paginator.Paginator {
@@ -111,4 +111,4 @@ License
 
 © Chun-Yan Ho (pilagod), 2018-NOW
 
-Released under the [MIT License](https://github.com/pilagod/gorm-cursor-paginator/blob/master/LICENSE)
+Released under the [MIT License](https://github.com/mchaisse/gorm-cursor-paginator/blob/master/LICENSE)

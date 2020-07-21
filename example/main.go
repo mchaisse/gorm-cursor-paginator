@@ -6,7 +6,7 @@ import (
 
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
-	paginator "github.com/pilagod/gorm-cursor-paginator"
+	paginator "github.com/mchaisse/gorm-cursor-paginator"
 )
 
 // Product for product model

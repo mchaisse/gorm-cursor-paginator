@@ -19,6 +19,9 @@ func New() *Paginator {
 	return &Paginator{}
 }
 
+type NewCursorEncoderFn func(keys ...string) CursorEncoder
+type NewCursorDecoderFn func(ref interface{}, keys ...string) (CursorDecoder, error)
+
 // Paginator a builder doing pagination
 type Paginator struct {
 	cursor    Cursor
@@ -27,6 +30,8 @@ type Paginator struct {
 	tableKeys []string
 	limit     int
 	order     Order
+	decoderFn NewCursorDecoderFn
+	encoderFn NewCursorEncoderFn
 }
 
 // SetAfterCursor sets paging after cursor
@@ -54,6 +59,14 @@ func (p *Paginator) SetOrder(order Order) {
 	p.order = order
 }
 
+func (p *Paginator) SetNewDecoderFn(newDecoderFn NewCursorDecoderFn) {
+	p.decoderFn = newDecoderFn
+}
+
+func (p *Paginator) SetNewEncoderFn(newEncoderFn NewCursorEncoderFn) {
+	p.encoderFn = newEncoderFn
+}
+
 // GetNextCursor returns cursor for next pagination
 func (p *Paginator) GetNextCursor() Cursor {
 	return p.next
@@ -63,7 +76,13 @@ func (p *Paginator) GetNextCursor() Cursor {
 func (p *Paginator) Paginate(stmt *gorm.DB, out interface{}) *gorm.DB {
 	p.initOptions()
 	p.initTableKeys(stmt, out)
-	result := p.appendPagingQuery(stmt, out).Find(out)
+	result, err := p.appendPagingQuery(stmt, out)
+	if err != nil {
+		newStmt := stmt.New()
+		_ = newStmt.AddError(err)
+		return newStmt
+	}
+	result.Find(out)
 	// out must be a pointer or gorm will panic above
 	elems := reflect.ValueOf(out).Elem()
 	if elems.Kind() == reflect.Slice && elems.Len() > 0 {
@@ -93,8 +112,19 @@ func (p *Paginator) initTableKeys(db *gorm.DB, out interface{}) {
 	}
 }
 
-func (p *Paginator) appendPagingQuery(stmt *gorm.DB, out interface{}) *gorm.DB {
-	decoder, _ := NewCursorDecoder(out, p.keys...)
+func (p *Paginator) appendPagingQuery(stmt *gorm.DB, out interface{}) (*gorm.DB, error) {
+	var decoder CursorDecoder
+	var err error
+
+	if p.decoderFn != nil {
+		decoder, err = p.decoderFn(out, p.keys...)
+	} else {
+		decoder, err = NewCursorDecoder(out, p.keys...)
+	}
+	if err != nil {
+		return nil, err
+	}
+
 	var fields []interface{}
 	if p.hasAfterCursor() {
 		fields = decoder.Decode(*p.cursor.After)
@@ -109,7 +139,7 @@ func (p *Paginator) appendPagingQuery(stmt *gorm.DB, out interface{}) *gorm.DB {
 	}
 	stmt = stmt.Limit(p.limit + 1)
 	stmt = stmt.Order(p.getOrder())
-	return stmt
+	return stmt, nil
 }
 
 func (p *Paginator) hasAfterCursor() bool {
@@ -167,7 +197,14 @@ func (p *Paginator) postProcess(out interface{}) {
 	if p.hasBeforeCursor() {
 		elems.Set(reverse(elems))
 	}
-	encoder := NewCursorEncoder(p.keys...)
+
+	var encoder CursorEncoder
+	if p.encoderFn != nil {
+		encoder = p.encoderFn(p.keys...)
+	} else {
+		encoder = NewCursorEncoder(p.keys...)
+	}
+
 	if p.hasBeforeCursor() || hasMore {
 		cursor := encoder.Encode(elems.Index(elems.Len() - 1))
 		p.next.After = &cursor

@@ -323,6 +323,10 @@ func (s *paginatorSuite) TestPaginateSpecialCharacter() {
 	s.assertOnlyAfter(cursor)
 }
 
+func (s *paginatorSuite) TestPaginateNewCursorEncoder() {
+
+}
+
 /* util */
 
 func (s *paginatorSuite) paginate(stmt *gorm.DB, out interface{}, q pq) Cursor {
