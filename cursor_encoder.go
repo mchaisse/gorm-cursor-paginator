@@ -11,7 +11,7 @@ import (
 
 // CursorEncoder encoder for cursor
 type CursorEncoder interface {
-	Encode(v interface{}) string
+	Encode(v interface{}) (string, error)
 }
 
 // NewCursorEncoder creates cursor encoder
@@ -23,11 +23,15 @@ type cursorEncoder struct {
 	keys []string
 }
 
-func (e *cursorEncoder) Encode(v interface{}) string {
-	return base64.StdEncoding.EncodeToString(e.marshalJSON(v))
+func (e *cursorEncoder) Encode(v interface{}) (string, error) {
+	b, err := e.marshalJSON(v)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(b), nil
 }
 
-func (e *cursorEncoder) marshalJSON(value interface{}) []byte {
+func (e *cursorEncoder) marshalJSON(value interface{}) ([]byte, error) {
 	rv := toReflectValue(value)
 	// reduce reflect value to underlying value
 	for rv.Kind() == reflect.Ptr {
@@ -37,9 +41,11 @@ func (e *cursorEncoder) marshalJSON(value interface{}) []byte {
 	for i, key := range e.keys {
 		fields[i] = rv.FieldByName(key).Interface()
 	}
-	// @TODO: return proper error
-	b, _ := json.Marshal(fields)
-	return b
+	b, err := json.Marshal(fields)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
 }
 
 /* deprecated */

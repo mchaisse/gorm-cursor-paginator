@@ -79,6 +79,7 @@ func (p *Paginator) Paginate(stmt *gorm.DB, out interface{}) *gorm.DB {
 	result, err := p.appendPagingQuery(stmt, out)
 	if err != nil {
 		newStmt := stmt.New()
+		// returns the same error, no need to check it
 		_ = newStmt.AddError(err)
 		return newStmt
 	}
@@ -86,7 +87,11 @@ func (p *Paginator) Paginate(stmt *gorm.DB, out interface{}) *gorm.DB {
 	// out must be a pointer or gorm will panic above
 	elems := reflect.ValueOf(out).Elem()
 	if elems.Kind() == reflect.Slice && elems.Len() > 0 {
-		p.postProcess(out)
+		err = p.postProcess(out)
+		if err != nil {
+			// returns the same error, no need to check it
+			_ = result.AddError(err)
+		}
 	}
 	return result
 }
@@ -127,9 +132,15 @@ func (p *Paginator) appendPagingQuery(stmt *gorm.DB, out interface{}) (*gorm.DB,
 
 	var fields []interface{}
 	if p.hasAfterCursor() {
-		fields = decoder.Decode(*p.cursor.After)
+		fields, err = decoder.Decode(*p.cursor.After)
+		if err != nil {
+			return nil, err
+		}
 	} else if p.hasBeforeCursor() {
-		fields = decoder.Decode(*p.cursor.Before)
+		fields, err = decoder.Decode(*p.cursor.Before)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if len(fields) > 0 {
 		stmt = stmt.Where(
@@ -188,7 +199,7 @@ func (p *Paginator) getOrder() string {
 	return strings.Join(orders, ", ")
 }
 
-func (p *Paginator) postProcess(out interface{}) {
+func (p *Paginator) postProcess(out interface{}) error {
 	elems := reflect.ValueOf(out).Elem()
 	hasMore := elems.Len() > p.limit
 	if hasMore {
@@ -206,14 +217,20 @@ func (p *Paginator) postProcess(out interface{}) {
 	}
 
 	if p.hasBeforeCursor() || hasMore {
-		cursor := encoder.Encode(elems.Index(elems.Len() - 1))
+		cursor, err := encoder.Encode(elems.Index(elems.Len() - 1))
+		if err != nil {
+			return err
+		}
 		p.next.After = &cursor
 	}
 	if p.hasAfterCursor() || (hasMore && p.hasBeforeCursor()) {
-		cursor := encoder.Encode(elems.Index(0))
+		cursor, err := encoder.Encode(elems.Index(0))
+		if err != nil {
+			return err
+		}
 		p.next.Before = &cursor
 	}
-	return
+	return nil
 }
 
 func reverse(v reflect.Value) reflect.Value {

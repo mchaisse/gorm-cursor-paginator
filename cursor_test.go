@@ -26,7 +26,10 @@ type cursorSuite struct {
 
 func (s *cursorSuite) TestCursorEncoderAndDecoder() {
 	var model = createCursorModelFixture()
-	cursor := model.Encode()
+	cursor, err := model.Encode()
+	if err != nil {
+		s.FailNow(err.Error())
+	}
 	fields, _ := model.Decode(cursor)
 	s.assertFields(model, fields)
 }
@@ -35,7 +38,10 @@ func (s *cursorSuite) TestCursorEncoderAndDecoder() {
 
 func (s *cursorSuite) TestCursorEncoderBackwardCompatibility() {
 	var model = createCursorModelFixture()
-	cursor := model.Encode()
+	cursor, err := model.Encode()
+	if err != nil {
+		s.FailNow(err.Error())
+	}
 	fields := Decode(cursor)
 	s.assertDeprecatedFields(model, fields)
 }
@@ -51,7 +57,8 @@ func (s *cursorSuite) TestCursorDecoderShouldReturnErrorWhenRefIsNotStruct() {
 func (s *cursorSuite) TestCursorDecoderShouldReturnNilWhenCursorIsNotBase64Encoded() {
 	var model = createCursorModelFixture()
 	decoder, _ := model.Decoder()
-	fields := decoder.Decode("hello world")
+	fields, err := decoder.Decode("hello world")
+	s.NoError(err)
 	s.Nil(fields)
 }
 
@@ -127,7 +134,10 @@ func (s *cursorSuite) TestCursorDeprecatedDecodeShouldReturnNilWhenCursorIsNotBa
 
 func (s *cursorSuite) TestCursorDeprecatedEncodeForwardCompatibility() {
 	var model = createCursorModelFixture()
-	expected := model.Encode()
+	expected, err := model.Encode()
+	if err != nil {
+		s.FailNow(err.Error())
+	}
 	got := Encode(reflect.ValueOf(model), model.Keys())
 	s.Equal(expected, got)
 }
@@ -181,7 +191,7 @@ func (m *cursorModel) Keys() []string {
 	return []string{"Bool", "Int", "Uint", "Float", "String", "Time", "StructField", "StructFieldPtr"}
 }
 
-func (m *cursorModel) Encode() string {
+func (m *cursorModel) Encode() (string, error) {
 	return m.Encoder().Encode(m)
 }
 
@@ -190,7 +200,11 @@ func (m *cursorModel) Encoder() CursorEncoder {
 }
 
 func (m *cursorModel) EncodeReplace(key string, value interface{}) string {
-	b, err := base64.StdEncoding.DecodeString(m.Encode())
+	s, err := m.Encode()
+	if err != nil {
+		panic(err.Error())
+	}
+	b, err := base64.StdEncoding.DecodeString(s)
 	if err != nil {
 		panic("cursor encoded from CursorEncoder should be base64 encoded")
 	}
@@ -224,7 +238,7 @@ func (m *cursorModel) Decode(cursor string) ([]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return decoder.Decode(cursor), nil
+	return decoder.Decode(cursor)
 }
 
 func (m *cursorModel) Decoder() (CursorDecoder, error) {

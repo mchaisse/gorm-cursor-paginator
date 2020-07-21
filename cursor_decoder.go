@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"time"
@@ -12,7 +13,7 @@ import (
 
 // CursorDecoder decoder for cursor
 type CursorDecoder interface {
-	Decode(cursor string) []interface{}
+	Decode(cursor string) ([]interface{}, error)
 }
 
 // NewCursorDecoder creates cursor decoder
@@ -36,8 +37,8 @@ func NewCursorDecoder(ref interface{}, keys ...string) (CursorDecoder, error) {
 // Errors for decoders
 var (
 	ErrInvalidDecodeReference = errors.New("decode reference should be struct")
-	ErrInvalidField           = errors.New("invalid field")
 	ErrInvalidOldField        = errors.New("invalid old field")
+	ErrFieldNotFound          = errors.New("cannot find the field in the struct")
 )
 
 type cursorDecoder struct {
@@ -46,17 +47,17 @@ type cursorDecoder struct {
 	keys []string
 }
 
-func (d *cursorDecoder) Decode(cursor string) []interface{} {
+func (d *cursorDecoder) Decode(cursor string) ([]interface{}, error) {
 	b, err := base64.StdEncoding.DecodeString(cursor)
-	// @TODO: return proper error
+	// we do not want to fail in case the cursor is not base64 encoded
 	if err != nil {
-		return nil
+		return nil, nil
 	}
 
 	// If it is not valid JSON, we should attempt to use the old decoding
-	// technique for backwards compatability.
+	// technique for backwards compatibility.
 	if !json.Valid(b) {
-		return decodeOld(b)
+		return decodeOld(b), nil
 	}
 
 	// Create a JSON decoder
@@ -65,7 +66,7 @@ func (d *cursorDecoder) Decode(cursor string) []interface{} {
 	// Read open bracket
 	_, err = dec.Token()
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	// Iterate over each key and decode the value
@@ -74,7 +75,7 @@ func (d *cursorDecoder) Decode(cursor string) []interface{} {
 		// Find the field in the struct
 		field, ok := d.ref.FieldByName(key)
 		if !ok {
-			return nil
+			return nil, fmt.Errorf("%v: %s", ErrFieldNotFound, key)
 		}
 
 		// Get a copy of the field. JSON decoding requires a pointer but we want
@@ -92,7 +93,7 @@ func (d *cursorDecoder) Decode(cursor string) []interface{} {
 
 		// Decode the value
 		if err := dec.Decode(&v); err != nil {
-			return nil
+			return nil, err
 		}
 
 		// Need to dereference since everything is now a pointer
@@ -102,7 +103,7 @@ func (d *cursorDecoder) Decode(cursor string) []interface{} {
 		result[i] = v
 	}
 
-	return result
+	return result, nil
 }
 
 /* deprecated */
