@@ -15,12 +15,13 @@ type CursorEncoder interface {
 }
 
 // NewCursorEncoder creates cursor encoder
-func NewCursorEncoder(keys ...string) CursorEncoder {
-	return &cursorEncoder{keys}
+func NewCursorEncoder(overKeys map[string]string, keys ...string) CursorEncoder {
+	return &cursorEncoder{keys, overKeys}
 }
 
 type cursorEncoder struct {
-	keys []string
+	keys     []string
+	overKeys map[string]string
 }
 
 func (e *cursorEncoder) Encode(v interface{}) (string, error) {
@@ -39,6 +40,7 @@ func (e *cursorEncoder) marshalJSON(value interface{}) ([]byte, error) {
 	}
 	fields := make([]interface{}, len(e.keys))
 	for i, key := range e.keys {
+		key = GetRealKey(key, e.overKeys)
 		fields[i] = rv.FieldByName(key).Interface()
 	}
 	b, err := json.Marshal(fields)

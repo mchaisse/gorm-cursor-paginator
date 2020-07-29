@@ -2,10 +2,10 @@ package paginator
 
 import (
 	"fmt"
+	"github.com/iancoleman/strcase"
 	"reflect"
 	"strings"
 
-	"github.com/iancoleman/strcase"
 	"github.com/jinzhu/gorm"
 )
 
@@ -19,19 +19,20 @@ func New() *Paginator {
 	return &Paginator{}
 }
 
-type NewCursorEncoderFn func(keys ...string) CursorEncoder
-type NewCursorDecoderFn func(ref interface{}, keys ...string) (CursorDecoder, error)
+type NewCursorEncoderFn func(overKeys map[string]string, keys ...string) CursorEncoder
+type NewCursorDecoderFn func(ref interface{}, overKeys map[string]string, keys ...string) (CursorDecoder, error)
 
 // Paginator a builder doing pagination
 type Paginator struct {
-	cursor    Cursor
-	next      Cursor
-	keys      []string
-	tableKeys []string
-	limit     int
-	order     Order
-	decoderFn NewCursorDecoderFn
-	encoderFn NewCursorEncoderFn
+	cursor            Cursor
+	next              Cursor
+	keys              []string
+	tableKeys         []string
+	tableKeysOverride map[string]string
+	limit             int
+	order             Order
+	decoderFn         NewCursorDecoderFn
+	encoderFn         NewCursorEncoderFn
 }
 
 // SetAfterCursor sets paging after cursor
@@ -47,6 +48,15 @@ func (p *Paginator) SetBeforeCursor(beforeCursor string) {
 // SetKeys sets paging keys
 func (p *Paginator) SetKeys(keys ...string) {
 	p.keys = append(p.keys, keys...)
+}
+
+// SetKeyOverride sets paging keys override in where clause (when using alias for example)
+func (p *Paginator) SetKeyOverride(key string, value string) {
+	// initiate if using it
+	if p.tableKeysOverride == nil {
+		p.tableKeysOverride = make(map[string]string)
+	}
+	p.tableKeysOverride[strcase.ToSnake(key)] = value
 }
 
 // SetLimit sets paging limit
@@ -70,6 +80,11 @@ func (p *Paginator) SetNewEncoderFn(newEncoderFn NewCursorEncoderFn) {
 // GetNextCursor returns cursor for next pagination
 func (p *Paginator) GetNextCursor() Cursor {
 	return p.next
+}
+
+// GetRealKey returns the overridden value if exists
+func (p *Paginator) GetRealKey(key string) string {
+	return GetRealKey(key, p.tableKeysOverride)
 }
 
 // Paginate paginates data
@@ -111,9 +126,19 @@ func (p *Paginator) initOptions() {
 }
 
 func (p *Paginator) initTableKeys(db *gorm.DB, out interface{}) {
-	table := db.NewScope(out).TableName()
+	scope := db.NewScope(out)
 	for _, key := range p.keys {
-		p.tableKeys = append(p.tableKeys, fmt.Sprintf("%s.%s", table, strcase.ToSnake(key)))
+		var tableKey string
+
+		// if column name exists in the DB, we namespace with table name
+		// otherwise, we assume it is a custom "AS name"
+		field, ok := scope.FieldByName(key)
+		if ok && !field.IsIgnored {
+			tableKey = fmt.Sprintf("%s.%s", scope.TableName(), field.DBName)
+		} else {
+			tableKey = fmt.Sprintf("%s", strcase.ToSnake(key))
+		}
+		p.tableKeys = append(p.tableKeys, tableKey)
 	}
 }
 
@@ -122,9 +147,9 @@ func (p *Paginator) appendPagingQuery(stmt *gorm.DB, out interface{}) (*gorm.DB,
 	var err error
 
 	if p.decoderFn != nil {
-		decoder, err = p.decoderFn(out, p.keys...)
+		decoder, err = p.decoderFn(out, p.tableKeysOverride, p.keys...)
 	} else {
-		decoder, err = NewCursorDecoder(out, p.keys...)
+		decoder, err = NewCursorDecoder(out, p.tableKeysOverride, p.keys...)
 	}
 	if err != nil {
 		return nil, err
@@ -166,6 +191,7 @@ func (p *Paginator) getCursorQuery() string {
 	op := p.getOperator()
 	composite := ""
 	for i, sqlKey := range p.tableKeys {
+		sqlKey = p.GetRealKey(sqlKey)
 		qs[i] = fmt.Sprintf("%s%s %s ?", composite, sqlKey, op)
 		composite = fmt.Sprintf("%s%s = ? AND ", composite, sqlKey)
 	}
@@ -194,6 +220,7 @@ func (p *Paginator) getOrder() string {
 	}
 	orders := make([]string, len(p.tableKeys))
 	for index, sqlKey := range p.tableKeys {
+		sqlKey = p.GetRealKey(sqlKey)
 		orders[index] = fmt.Sprintf("%s %s", sqlKey, order)
 	}
 	return strings.Join(orders, ", ")
@@ -211,9 +238,9 @@ func (p *Paginator) postProcess(out interface{}) error {
 
 	var encoder CursorEncoder
 	if p.encoderFn != nil {
-		encoder = p.encoderFn(p.keys...)
+		encoder = p.encoderFn(p.tableKeysOverride, p.keys...)
 	} else {
-		encoder = NewCursorEncoder(p.keys...)
+		encoder = NewCursorEncoder(p.tableKeysOverride, p.keys...)
 	}
 
 	if p.hasBeforeCursor() || hasMore {

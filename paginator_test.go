@@ -20,7 +20,10 @@ type order struct {
 	ID        int       `gorm:"primary_key"`
 	Name      *string   `gorm:"type:varchar(30)"`
 	Items     []item    `gorm:"foreignkey:OrderID"`
+	Details   string    `gorm:"column:description"`
 	CreatedAt time.Time `gorm:"type:timestamp;not null"`
+	// field ignored in DB: test the AS clause while ordering
+	Custom string `gorm:"-"`
 }
 
 type item struct {
@@ -200,6 +203,80 @@ func (s *paginatorSuite) TestPaginateMultipleKeys() {
 	s.assertOnlyAfter(cursor)
 }
 
+func (s *paginatorSuite) TestPaginateCustomGormColumn() {
+	var orders = s.givenCustomOrders([]order{
+		{Details: "c"},
+		{Details: "d"},
+		{Details: "b"},
+		{Details: "e"},
+		{Details: "a"},
+	})
+	var keys = []string{"Details"}
+
+	var o1 []order
+	cursor := s.paginate(s.db, &o1, pq{
+		Keys:  keys,
+		Limit: pqLimit(2),
+	})
+	s.assertOrders(orders, 3, 1, o1)
+	s.assertOnlyAfter(cursor)
+
+	var o2 []order
+	cursor = s.paginate(s.db, &o2, pq{
+		Keys:  keys,
+		After: cursor.After,
+	})
+	s.assertOrders(orders, 0, 4, o2)
+	s.assertOnlyBefore(cursor)
+
+	var o3 []order
+	cursor = s.paginate(s.db, &o3, pq{
+		Keys:   keys,
+		Before: cursor.Before,
+	})
+	s.Equal(o1, o3)
+	s.assertOnlyAfter(cursor)
+}
+
+func (s *paginatorSuite) TestPaginateAliasOverride() {
+	var orders = s.givenCustomOrders([]order{
+		{Name: pqString("c")},
+		{Name: pqString("d")},
+		{Name: pqString("b")},
+		{Name: pqString("e")},
+		{Name: pqString("a")},
+	})
+	var keys = []string{"Custom"}
+	var overriddenKeys = map[string]string{"Custom": "name"}
+
+	var o1 []order
+	cursor := s.paginate(s.db, &o1, pq{
+		Keys:         keys,
+		KeysOverride: overriddenKeys,
+		Limit:        pqLimit(2),
+	})
+	s.assertOrders(orders, 3, 1, o1)
+	s.assertOnlyAfter(cursor)
+
+	var o2 []order
+	cursor = s.paginate(s.db, &o2, pq{
+		Keys:         keys,
+		KeysOverride: overriddenKeys,
+		After:        cursor.After,
+	})
+	s.assertOrders(orders, 0, 4, o2)
+	s.assertOnlyBefore(cursor)
+
+	var o3 []order
+	cursor = s.paginate(s.db, &o3, pq{
+		Keys:         keys,
+		KeysOverride: overriddenKeys,
+		Before:       cursor.Before,
+	})
+	s.Equal(o1, o3)
+	s.assertOnlyAfter(cursor)
+}
+
 func (s *paginatorSuite) TestPaginateLimitOption() {
 	s.givenOrders(5)
 
@@ -339,17 +416,23 @@ func (s *paginatorSuite) paginate(stmt *gorm.DB, out interface{}, q pq) Cursor {
 
 // pq stands for paging query
 type pq struct {
-	Keys   []string
-	After  *string
-	Before *string
-	Limit  *int
-	Order  *Order
+	Keys         []string
+	KeysOverride map[string]string
+	After        *string
+	Before       *string
+	Limit        *int
+	Order        *Order
 }
 
 func (q pq) Paginator() *Paginator {
 	p := New()
 	if q.Keys != nil {
 		p.SetKeys(q.Keys...)
+	}
+	if q.KeysOverride != nil {
+		for key, value := range q.KeysOverride {
+			p.SetKeyOverride(key, value)
+		}
 	}
 	if q.After != nil {
 		p.SetAfterCursor(*q.After)

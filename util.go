@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"regexp"
 	"time"
+
+	"github.com/iancoleman/strcase"
 )
 
 var (
@@ -17,7 +19,7 @@ var (
 // Deprecated: Encode will remove in v2, use CursorEncoder instead
 func Encode(v reflect.Value, keys []string) string {
 	// ignore error since it is a deprecated method we do not want to change the definition
-	encoded, _ := NewCursorEncoder(keys...).Encode(v)
+	encoded, _ := NewCursorEncoder(map[string]string{}, keys...).Encode(v)
 	return encoded
 }
 
@@ -54,4 +56,15 @@ func toReflectValue(value interface{}) reflect.Value {
 		return reflect.ValueOf(value)
 	}
 	return rv
+}
+
+// GetRealKey returns the overridden value if exists
+func GetRealKey(key string, overriddenKeys map[string]string) string {
+	k := key
+
+	if v, ok := overriddenKeys[strcase.ToSnake(k)]; ok {
+		k = strcase.ToCamel(v)
+	}
+
+	return k
 }
