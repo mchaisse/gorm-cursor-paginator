@@ -63,7 +63,7 @@ func GetRealKey(key string, overriddenKeys map[string]string) string {
 	k := key
 
 	if v, ok := overriddenKeys[strcase.ToSnake(k)]; ok {
-		k = strcase.ToCamel(v)
+		k = v
 	}
 
 	return k

@@ -73,7 +73,6 @@ func (d *cursorDecoder) Decode(cursor string) ([]interface{}, error) {
 	// Iterate over each key and decode the value
 	result := make([]interface{}, len(d.keys))
 	for i, key := range d.keys {
-		key = GetRealKey(key, d.overKeys)
 		// Find the field in the struct
 		field, ok := d.ref.FieldByName(key)
 		if !ok {

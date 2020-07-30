@@ -40,7 +40,6 @@ func (e *cursorEncoder) marshalJSON(value interface{}) ([]byte, error) {
 	}
 	fields := make([]interface{}, len(e.keys))
 	for i, key := range e.keys {
-		key = GetRealKey(key, e.overKeys)
 		fields[i] = rv.FieldByName(key).Interface()
 	}
 	b, err := json.Marshal(fields)

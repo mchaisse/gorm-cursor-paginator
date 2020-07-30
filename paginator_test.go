@@ -247,10 +247,12 @@ func (s *paginatorSuite) TestPaginateAliasOverride() {
 		{Name: pqString("a")},
 	})
 	var keys = []string{"Custom"}
-	var overriddenKeys = map[string]string{"Custom": "name"}
+	var overriddenKeys = map[string]string{"Custom": "CONCAT('my_', name)"}
+
+	query := s.db.Select("id, name, CONCAT('my_', name) AS custom")
 
 	var o1 []order
-	cursor := s.paginate(s.db, &o1, pq{
+	cursor := s.paginate(query, &o1, pq{
 		Keys:         keys,
 		KeysOverride: overriddenKeys,
 		Limit:        pqLimit(2),
@@ -259,7 +261,7 @@ func (s *paginatorSuite) TestPaginateAliasOverride() {
 	s.assertOnlyAfter(cursor)
 
 	var o2 []order
-	cursor = s.paginate(s.db, &o2, pq{
+	cursor = s.paginate(query, &o2, pq{
 		Keys:         keys,
 		KeysOverride: overriddenKeys,
 		After:        cursor.After,
@@ -268,7 +270,7 @@ func (s *paginatorSuite) TestPaginateAliasOverride() {
 	s.assertOnlyBefore(cursor)
 
 	var o3 []order
-	cursor = s.paginate(s.db, &o3, pq{
+	cursor = s.paginate(query, &o3, pq{
 		Keys:         keys,
 		KeysOverride: overriddenKeys,
 		Before:       cursor.Before,
