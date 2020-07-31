@@ -50,7 +50,7 @@ func (s *cursorSuite) TestCursorEncoderBackwardCompatibility() {
 
 func (s *cursorSuite) TestCursorDecoderShouldReturnErrorWhenRefIsNotStruct() {
 	var nonStructRef int
-	_, err := NewCursorDecoder(nonStructRef, map[string]string{}, "Key")
+	_, err := NewCursorDecoder(nonStructRef, "Key")
 	s.Equal(ErrInvalidDecodeReference, err)
 }
 
@@ -196,7 +196,7 @@ func (m *cursorModel) Encode() (string, error) {
 }
 
 func (m *cursorModel) Encoder() CursorEncoder {
-	return NewCursorEncoder(map[string]string{}, m.Keys()...)
+	return NewCursorEncoder(m.Keys()...)
 }
 
 func (m *cursorModel) EncodeReplace(key string, value interface{}) string {
@@ -242,7 +242,7 @@ func (m *cursorModel) Decode(cursor string) ([]interface{}, error) {
 }
 
 func (m *cursorModel) Decoder() (CursorDecoder, error) {
-	return NewCursorDecoder(m, map[string]string{}, m.Keys()...)
+	return NewCursorDecoder(m, m.Keys()...)
 }
 
 /* util */

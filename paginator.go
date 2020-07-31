@@ -19,8 +19,8 @@ func New() *Paginator {
 	return &Paginator{}
 }
 
-type NewCursorEncoderFn func(overKeys map[string]string, keys ...string) CursorEncoder
-type NewCursorDecoderFn func(ref interface{}, overKeys map[string]string, keys ...string) (CursorDecoder, error)
+type NewCursorEncoderFn func(keys ...string) CursorEncoder
+type NewCursorDecoderFn func(ref interface{}, keys ...string) (CursorDecoder, error)
 
 // Paginator a builder doing pagination
 type Paginator struct {
@@ -147,9 +147,9 @@ func (p *Paginator) appendPagingQuery(stmt *gorm.DB, out interface{}) (*gorm.DB,
 	var err error
 
 	if p.decoderFn != nil {
-		decoder, err = p.decoderFn(out, p.tableKeysOverride, p.keys...)
+		decoder, err = p.decoderFn(out, p.keys...)
 	} else {
-		decoder, err = NewCursorDecoder(out, p.tableKeysOverride, p.keys...)
+		decoder, err = NewCursorDecoder(out, p.keys...)
 	}
 	if err != nil {
 		return nil, err
@@ -238,9 +238,9 @@ func (p *Paginator) postProcess(out interface{}) error {
 
 	var encoder CursorEncoder
 	if p.encoderFn != nil {
-		encoder = p.encoderFn(p.tableKeysOverride, p.keys...)
+		encoder = p.encoderFn(p.keys...)
 	} else {
-		encoder = NewCursorEncoder(p.tableKeysOverride, p.keys...)
+		encoder = NewCursorEncoder(p.keys...)
 	}
 
 	if p.hasBeforeCursor() || hasMore {

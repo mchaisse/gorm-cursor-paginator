@@ -17,7 +17,7 @@ type CursorDecoder interface {
 }
 
 // NewCursorDecoder creates cursor decoder
-func NewCursorDecoder(ref interface{}, overKeys map[string]string, keys ...string) (CursorDecoder, error) {
+func NewCursorDecoder(ref interface{}, keys ...string) (CursorDecoder, error) {
 	// Get the reflected type
 	rt := toReflectValue(ref).Type()
 
@@ -31,7 +31,7 @@ func NewCursorDecoder(ref interface{}, overKeys map[string]string, keys ...strin
 		return nil, ErrInvalidDecodeReference
 	}
 
-	return &cursorDecoder{ref: rt, keys: keys, overKeys: overKeys}, nil
+	return &cursorDecoder{ref: rt, keys: keys}, nil
 }
 
 // Errors for decoders
@@ -43,9 +43,8 @@ var (
 
 type cursorDecoder struct {
 	// ref is the reference objects reflected type
-	ref      reflect.Type
-	keys     []string
-	overKeys map[string]string
+	ref  reflect.Type
+	keys []string
 }
 
 func (d *cursorDecoder) Decode(cursor string) ([]interface{}, error) {

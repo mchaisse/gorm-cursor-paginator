@@ -15,13 +15,12 @@ type CursorEncoder interface {
 }
 
 // NewCursorEncoder creates cursor encoder
-func NewCursorEncoder(overKeys map[string]string, keys ...string) CursorEncoder {
-	return &cursorEncoder{keys, overKeys}
+func NewCursorEncoder(keys ...string) CursorEncoder {
+	return &cursorEncoder{keys}
 }
 
 type cursorEncoder struct {
-	keys     []string
-	overKeys map[string]string
+	keys []string
 }
 
 func (e *cursorEncoder) Encode(v interface{}) (string, error) {
