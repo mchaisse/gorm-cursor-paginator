@@ -149,7 +149,7 @@ func (p *Paginator) appendPagingQuery(stmt *gorm.DB, out interface{}) (*gorm.DB,
 	if p.decoderFn != nil {
 		decoder, err = p.decoderFn(out, p.tableKeysOverride, p.keys...)
 	} else {
-		decoder, err = NewCursorDecoder(out, p.tableKeysOverride, p.keys...)
+		decoder, err = NewCursorDecoder(out, p.keys...)
 	}
 	if err != nil {
 		return nil, err
@@ -240,7 +240,7 @@ func (p *Paginator) postProcess(out interface{}) error {
 	if p.encoderFn != nil {
 		encoder = p.encoderFn(p.tableKeysOverride, p.keys...)
 	} else {
-		encoder = NewCursorEncoder(p.tableKeysOverride, p.keys...)
+		encoder = NewCursorEncoder(p.keys...)
 	}
 
 	if p.hasBeforeCursor() || hasMore {

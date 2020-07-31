@@ -19,7 +19,7 @@ var (
 // Deprecated: Encode will remove in v2, use CursorEncoder instead
 func Encode(v reflect.Value, keys []string) string {
 	// ignore error since it is a deprecated method we do not want to change the definition
-	encoded, _ := NewCursorEncoder(map[string]string{}, keys...).Encode(v)
+	encoded, _ := NewCursorEncoder(keys...).Encode(v)
 	return encoded
 }
 
