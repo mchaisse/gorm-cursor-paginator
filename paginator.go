@@ -168,9 +168,10 @@ func (p *Paginator) appendPagingQuery(stmt *gorm.DB, out interface{}) (*gorm.DB,
 		}
 	}
 	if len(fields) > 0 {
+		scope := stmt.NewScope(out)
 		stmt = stmt.Where(
 			p.getCursorQuery(),
-			p.getCursorQueryArgs(fields)...,
+			p.getCursorQueryArgs(fields, scope)...,
 		)
 	}
 	stmt = stmt.Limit(p.limit + 1)
@@ -198,11 +199,31 @@ func (p *Paginator) getCursorQuery() string {
 	return strings.Join(qs, " OR ")
 }
 
-func (p *Paginator) getCursorQueryArgs(fields []interface{}) (args []interface{}) {
+func (p *Paginator) getCursorQueryArgs(fields []interface{}, scope *gorm.Scope) (args []interface{}) {
 	for i := 1; i <= len(fields); i++ {
-		args = append(args, fields[:i]...)
+		args = append(args, p.outFields(fields[:i], scope)...)
 	}
 	return
+}
+
+func (p *Paginator) outFields(fields []interface{}, scope *gorm.Scope) []interface{} {
+	for i, field := range fields {
+		f, ok := scope.FieldByName(p.keys[i])
+		// if a key is ignored in the model then we have to cast it to a string
+		// otherwise GORM will shift the results
+		if ok && f.IsIgnored {
+			fields[i] = fmt.Sprintf("%v", fieldValue(field))
+		}
+	}
+	return fields
+}
+
+func fieldValue(field interface{}) interface{} {
+	val := reflect.ValueOf(field)
+	if val.Kind() == reflect.Ptr && !val.IsNil() {
+		return val.Elem()
+	}
+	return field
 }
 
 func (p *Paginator) getOperator() string {
